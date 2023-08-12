@@ -27,6 +27,7 @@ function _draw()
 	map()
 	drawfacts()
 	game_state:draw()
+	--notif('player turn start')
 end
 -->8
 --graphics
@@ -50,6 +51,12 @@ drawfacts=function()
 	for i, f in ipairs(factions) do
 		f:draw(i)
 	end
+end
+
+--turn start notice
+notif=function(txt)
+	textbox(25,25,85,15)
+	print(txt,30,30)
 end
 -->8
 --controls
@@ -222,6 +229,22 @@ function getactfact()
 	return factions[actfact]
 end
 
+--any active units left in faction
+function anyactu(f)
+	for u in all(f.units) do
+		if(u.act) return true
+	end
+	return false
+end
+
+--faction refresh
+function frefresh(f)
+	for u in all(f.units) do
+		u.act=true
+	end
+end
+
+-- actions
 function atk(a,t)
 	t.hp-=a.atk-t.def
 	a.act=false
@@ -286,7 +309,7 @@ function selact_st(u)
 				game_state=selu_st(self.u.pos)
 			elseif(sel=='wait')then
 				self.u.act=false
-				game_state=selu_st(self.u.pos)
+				actresolve_st(self.u.pos)
 			elseif(sel=='attack')then
 				game_state=selacttar_st(u,sel)
 			end			
@@ -314,7 +337,7 @@ function selmove_st(u)
 			if(btnp(4)) then
 				self.u.pos=copytbl(self.sel.pos)
 				self.u.act = false
-			 game_state=selu_st(self.sel.pos)
+			 actresolve_st(self.sel.pos)
 			end
 			if(btnp(5))game_state=selact_st(self.u)
 		end,
@@ -349,7 +372,7 @@ function selacttar_st(u,act)
 			 and tar.fact.name!=afname)
 			 then
 			  atk(self.u,tar.u)
-			  game_state=selu_st(tar.u.pos)
+			  actresolve_st(tar.u.pos)
 			 end
 			end
 		end,
@@ -364,6 +387,38 @@ function selacttar_st(u,act)
 				end
 			end
 			self.sel:draw(selcol)
+		end
+	}
+end
+
+function actresolve_st(lpos)
+	local af = getactfact()
+	if(anyactu(af)) 
+	then game_state=selu_st(lpos)
+	else	game_state=newt_su()
+	end
+end
+
+function newt_su()
+	frefresh(getactfact())
+	return{
+		msg=1,
+		lstr='ending',
+		update=function(self)
+			if(btnp(4))then
+				if(self.msg==1) 
+				then actfact+=1
+					if(actfact>#factions)
+					then actfact=1 
+					end
+					self.msg+=1
+					self.lstr='starting'
+				else game_state=selu_st()
+				end
+			end
+		end,	
+		draw=function(self)
+			notif(getactfact().name..' turn '..self.lstr)
 		end
 	}
 end
